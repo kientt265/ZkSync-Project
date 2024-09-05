@@ -134,4 +134,25 @@ contract DecentralizeAutoFund {
     function isMemberActive(address member) public view returns (bool) {
         return members[member].isActive;
     }
+
+    function getMemberCount() public view returns (uint256) {
+        return firstId;
+    }
+
+    function getMembers() public view returns (address[] memory, uint256[] memory, string[] memory) {
+        address[] memory memberAddresses = new address[](firstId);
+        uint256[] memory ages = new uint256[](firstId);
+        string[] memory names = new string[](firstId);
+        uint256 count = 0;
+        for (uint256 i = 0; i < firstId; i++) {
+            address memberAddress = address(uint160(i));
+            if (members[memberAddress].isActive) {
+                memberAddresses[count] = memberAddress;
+                ages[count] = members[memberAddress].age;
+                names[count] = members[memberAddress].name;
+                count++;
+            }
+        }
+        return (memberAddresses, ages, names);
+    }
 }
