@@ -1,19 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-//import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract DecentralizeAutoFund is Ownable {
-    uint256 minMoneySignUp;
+contract Fund is Ownable {
+    uint256 public minUsdSignUp;
     uint256 firstId;
     address[] public listMember;
+    AggregatorV3Interface internal dataFeed;
+
     struct Member {
         uint256 id;
         uint256 age;
         string name;
         uint256 hosted;  
     }
+
     struct FundRaiser {
         address host;
         string nameFund;
@@ -23,6 +26,7 @@ contract DecentralizeAutoFund is Ownable {
         uint256 raisedAmount;
         bool isActive;
     }
+
     mapping(uint256 => mapping(address => uint256)) public contributions;
     mapping(uint256 => FundRaiser) public fundRaisers;
     mapping(address => Member) public members;
@@ -37,7 +41,7 @@ contract DecentralizeAutoFund is Ownable {
         uint256 goalAmount,
         uint256 endTime
     );
-    event MinMoneySignUpChanged(
+    event MinUsdSignUpChanged(
         uint256 oldAmount,
         uint256 newAmount
     );
@@ -52,14 +56,31 @@ contract DecentralizeAutoFund is Ownable {
     );
 
     // Constructor
-    constructor(uint256 _minMoneySignUp) Ownable() {
-        minMoneySignUp = _minMoneySignUp;
+    constructor(uint256 _minUsdSignUp, address _priceFeed) Ownable() {
+        minUsdSignUp = _minUsdSignUp;
         firstId = 1;
+        dataFeed = AggregatorV3Interface(_priceFeed);
         transferOwnership(msg.sender);
     }
 
+    function getLatestPrice() public view returns (uint256) {
+        (, int256 price,,,) = dataFeed.latestRoundData();
+        return uint256(price * 1e10); // Chuyển đổi 8 decimals thành 18 decimals
+    }
+
+    function getUsdValue(uint256 ethAmount) public view returns (uint256) {
+        uint256 ethPrice = getLatestPrice();
+        return (ethAmount * ethPrice) / 1e18;
+    }
+
+    function getEthAmount(uint256 usdAmount) public view returns (uint256) {
+        uint256 ethPrice = getLatestPrice();
+        return (usdAmount * 1e18) / ethPrice;
+    }
+
     function signUp(uint256 _age, string memory _name) public payable {
-        require(msg.value >= minMoneySignUp, "Insufficient funds for sign up!");
+        uint256 usdValue = getUsdValue(msg.value);
+        require(usdValue >= minUsdSignUp, "Insufficient funds for sign up!");
         members[msg.sender] = Member(firstId, _age, _name, 0);
         listMember.push(msg.sender);
         firstId++;
@@ -69,10 +90,10 @@ contract DecentralizeAutoFund is Ownable {
         return listMember;
     }
 
-    function hostFund(string memory _nameFund, string memory _reason, uint256 _goalAmount, uint256 _durationInMinutes) public {
+    function hostFund(string memory _nameFund, string memory _reason, uint256 _goalAmountUsd, uint256 _durationInMinutes) public {
         require(members[msg.sender].id != 0, "You must be a registered member to host a fund!");
         require(members[msg.sender].hosted <= 3, "You have exceeded the maximum number of hosts");
-        require(_goalAmount > 0, "Goal amount must be greater than zero");
+        require(_goalAmountUsd > 0, "Goal amount must be greater than zero");
         require(_durationInMinutes > 0, "Duration must be greater than zero");
 
         uint256 fundRaiserId = fundRaiserIds.length;
@@ -82,7 +103,7 @@ contract DecentralizeAutoFund is Ownable {
             host: msg.sender,
             nameFund: _nameFund,
             reason: _reason,
-            goalAmount: _goalAmount,
+            goalAmount: _goalAmountUsd,
             endTime: endTime,
             raisedAmount: 0,
             isActive: true
@@ -91,7 +112,7 @@ contract DecentralizeAutoFund is Ownable {
         fundRaiserIds.push(fundRaiserId);
         members[msg.sender].hosted++;
 
-        emit FundRaiserCreated(fundRaiserId, msg.sender, _nameFund, _reason, _goalAmount, endTime);
+        emit FundRaiserCreated(fundRaiserId, msg.sender, _nameFund, _reason, _goalAmountUsd, endTime);
     }
 
     function getContribution(uint256 _fundRaiserId, address _member) public view returns (uint256) {
@@ -101,7 +122,7 @@ contract DecentralizeAutoFund is Ownable {
     function updateFundRaiserStatus(uint256 _fundRaiserId) public {
         FundRaiser storage fundRaiser = fundRaisers[_fundRaiserId];
         if (block.timestamp > fundRaiser.endTime) {
-            if (fundRaiser.raisedAmount >= fundRaiser.goalAmount) {
+            if (getUsdValue(fundRaiser.raisedAmount) >= fundRaiser.goalAmount) {
                 // Goal met, send funds to host
                 payable(fundRaiser.host).transfer(fundRaiser.raisedAmount);
                 emit FundRaiserEnded(_fundRaiserId, true);
@@ -146,9 +167,9 @@ contract DecentralizeAutoFund is Ownable {
         emit FundWithdrawal(_fundRaiserId, msg.sender, _amount);
     }
 
-    function changeProportionMemberSignUp(uint256 _newAmount) public onlyOwner {
-        uint256 oldAmount = minMoneySignUp;
-        minMoneySignUp = _newAmount;
-        emit MinMoneySignUpChanged(oldAmount, _newAmount);
+    function changeMinUsdSignUp(uint256 _newAmount) public onlyOwner {
+        uint256 oldAmount = minUsdSignUp;
+        minUsdSignUp = _newAmount;
+        emit MinUsdSignUpChanged(oldAmount, _newAmount);
     }
 }
