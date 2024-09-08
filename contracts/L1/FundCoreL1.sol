@@ -115,4 +115,8 @@ contract FundCoreL1 is Ownable {
         bytes memory message = abi.encode(_fundRaiserId, _isActive);
         zkSync.requestL2Transaction(l2Target, 0, message, 1000000, 800, new bytes[](0), msg.sender);
     }
+
+    function updateL2Target(address _newL2Target) external onlyOwner {
+        l2Target = _newL2Target;
+    }
 }

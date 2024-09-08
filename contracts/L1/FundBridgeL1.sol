@@ -30,4 +30,8 @@ contract FundBridgeL1 {
             msg.sender // refundRecipient
         );
     }
+
+    function updateL2Target(address _newL2Target) external onlyOwner {
+        l2Target = _newL2Target;
+    }
 }
