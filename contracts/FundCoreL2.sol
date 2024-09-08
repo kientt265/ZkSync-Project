@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity ^0.8.0;
 
-import {FundCoreL1} from "./FundCoreL1.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@matterlabs/zksync-contracts/l2/system-contracts/interfaces/IL1Messenger.sol";
 
-contract FundCoreL2 {
-    FundCoreL1 public fundCoreL1;
-    
-    constructor(address _fundCoreL1) {
-        fundCoreL1 = FundCoreL1(_fundCoreL1);
+contract FundCoreL2 is Ownable {
+    address public l1Source;
+    IL1Messenger public l1Messenger;
+
+    constructor(address _l1Source, address _l1Messenger) {
+        l1Source = _l1Source;
+        l1Messenger = IL1Messenger(_l1Messenger);
     }
 
     mapping(uint256 => mapping(address => uint256)) public contributions;
@@ -25,25 +28,18 @@ contract FundCoreL2 {
         uint256 amount
     );
 
+    event FundRaiserStatusUpdated(uint256 indexed fundRaiserId, bool isActive);
+
     function contribute(uint256 _fundRaiserId) public payable {
-        // Use the getter function to retrieve Member data
-        FundCoreL1.Member memory member = fundCoreL1.getMember(msg.sender);
-        require(member.id != 0, "You must be a registered member to contribute!");
-        
-        // Use the getter function to retrieve FundRaiser data
-        FundCoreL1.FundRaiser memory fundRaiser = fundCoreL1.getFundRaiser(_fundRaiserId);
-        require(fundRaiser.isActive, "Fundraiser is not active");
+        require(fundRaiserStatus[_fundRaiserId], "Fundraiser is not active");
         require(msg.value > 0, "Contribution must be greater than zero");
 
         contributions[_fundRaiserId][msg.sender] += msg.value;
-        fundRaiserStatus[_fundRaiserId] = true;
 
         emit ContributionMade(_fundRaiserId, msg.sender, msg.value);
     }
 
     function withdrawFund(uint256 _fundRaiserId, uint256 _amount) public {
-        require(fundCoreL1.getMember(msg.sender).id != 0, "You must be a registered member to withdraw!");
-        
         require(fundRaiserStatus[_fundRaiserId], "Fundraiser is not active");
         require(_amount > 0 && _amount <= contributions[_fundRaiserId][msg.sender], "Invalid withdrawal amount");
 
@@ -51,5 +47,28 @@ contract FundCoreL2 {
         payable(msg.sender).transfer(_amount);
 
         emit FundWithdrawal(_fundRaiserId, msg.sender, _amount);
+    }
+
+    function setFundRaiserStatus(uint256 _fundRaiserId, bool _isActive) external onlyOwner {
+        require(fundRaiserStatus[_fundRaiserId] != _isActive, "Status is already set to the requested value");
+        fundRaiserStatus[_fundRaiserId] = _isActive;
+        emit FundRaiserStatusUpdated(_fundRaiserId, _isActive);
+    }
+
+    function processL1Message(uint256 _fundRaiserId, bool _isActive) external {
+        require(msg.sender == l1Source, "Only L1 source can call this");
+        fundRaiserStatus[_fundRaiserId] = _isActive;
+        emit FundRaiserStatusUpdated(_fundRaiserId, _isActive);
+    }
+
+    function sendMessageToL1(uint256 _fundRaiserId, address _host, string memory _nameFund, string memory _reason, uint256 _goalAmount, uint256 _endTime, uint256 _raisedAmount, bool _isActive) external onlyOwner {
+        bytes memory message = abi.encode(_fundRaiserId, _host, _nameFund, _reason, _goalAmount, _endTime, _raisedAmount, _isActive);
+        l1Messenger.sendToL1(message);
+    }
+
+    function updateFundRaiserFromL1(uint256 _fundRaiserId, bool _isActive) external {
+        require(msg.sender == l1Source, "Only L1 source can call this");
+        fundRaiserStatus[_fundRaiserId] = _isActive;
+        emit FundRaiserStatusUpdated(_fundRaiserId, _isActive);
     }
 }

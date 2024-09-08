@@ -2,8 +2,12 @@
 pragma solidity ^0.8.0;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import "@matterlabs/zksync-contracts/l1/contracts/zksync/interfaces/IZkSync.sol";
 
 contract FundCoreL1 is Ownable {
+    IZkSync public zkSync;
+    address public l2Target;
+
     uint256 public minMoneySignUp;
     uint256 public firstId;
     address[] public listMember;
@@ -42,8 +46,10 @@ contract FundCoreL1 is Ownable {
         uint256 newAmount
     );
 
-    constructor(uint256 _minMoneySignUp) Ownable() {
-        minMoneySignUp = _minMoneySignUp;
+    constructor(address _zkSync, address _l2Target) {
+        zkSync = IZkSync(_zkSync);
+        l2Target = _l2Target;
+        minMoneySignUp = 1;
         firstId = 1;
     }
 
@@ -85,13 +91,28 @@ contract FundCoreL1 is Ownable {
         emit MinMoneySignUpChanged(oldAmount, _newAmount);
     }
 
-    // Add getter function for FundRaiser struct
     function getFundRaiser(uint256 _fundRaiserId) public view returns (FundRaiser memory) {
         return fundRaisers[_fundRaiserId];
     }
 
-    // This function should be public or external
     function getMember(address memberAddress) public view returns (Member memory) {
-        // Implementation
+        return members[memberAddress];
+    }
+
+    function updateFundRaiser(uint256 _fundRaiserId, address _host, string memory _nameFund, string memory _reason, uint256 _goalAmount, uint256 _endTime, uint256 _raisedAmount, bool _isActive) external onlyOwner {
+        fundRaisers[_fundRaiserId] = FundRaiser({
+            host: _host,
+            nameFund: _nameFund,
+            reason: _reason,
+            goalAmount: _goalAmount,
+            endTime: _endTime,
+            raisedAmount: _raisedAmount,
+            isActive: _isActive
+        });
+    }
+
+    function sendMessageToL2(uint256 _fundRaiserId, bool _isActive) external onlyOwner {
+        bytes memory message = abi.encode(_fundRaiserId, _isActive);
+        zkSync.requestL2Transaction(l2Target, 0, message, 1000000, 800, new bytes[](0), msg.sender);
     }
 }
