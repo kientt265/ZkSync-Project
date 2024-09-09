@@ -9,6 +9,8 @@ contract FundCoreL2 is Ownable {
     IL1Messenger public l1Messenger;
 
     constructor(address _l1Source, address _l1Messenger) {
+        require(_l1Source != address(0), "L1 source address cannot be zero");
+        require(_l1Messenger != address(0), "L1 messenger address cannot be zero");
         l1Source = _l1Source;
         l1Messenger = IL1Messenger(_l1Messenger);
     }

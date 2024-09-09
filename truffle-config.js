@@ -4,25 +4,28 @@ require('dotenv').config();
 module.exports = {
   networks: {
     sepolia: {
-      provider: () => new HDWalletProvider(process.env.PRIVATE_KEY, 'https://site1.moralis-nodes.com/sepolia/b27771f043504aa2b234cc8d1ff3b7d7'),
-      network_id: 11155111, // Sepolia network ID
-      gas: 8000000, // Increase this value
-      gasPrice: 20000000000, // Set a specific gas price if needed
+      provider: () => new HDWalletProvider(
+        process.env.PRIVATE_KEY,
+        'https://sepolia.infura.io/v3/5f441fac55ed481da6b5f67d061c5ac3'
+      ),
+      network_id: 11155111, // Sepolia's network ID
+      gas: 5500000,
       confirmations: 2,
       timeoutBlocks: 200,
-      skipDryRun: true
+      skipDryRun: true,
+      networkCheckTimeout: 1000000
     },
     zkSyncTestnet: {
-      provider: () => new HDWalletProvider(process.env.PRIVATE_KEY, 'https://site1.moralis-nodes.com/zksync-sepolia/fde5617ad1ce44a98ae39fce5eada7a9'),
+      provider: () => new HDWalletProvider(process.env.PRIVATE_KEY, 'https://sepolia.era.zksync.dev'),
       network_id: 300, // Chain ID của zkSync Sepolia Testnet
-      gasPrice: 250000000, // Giá gas mặc định, có thể điều chỉnh
-      gas: 6000000,
-      networkCheckTimeout: 10000,
-      timeoutBlocks: 200,
+      gasPrice: 500000000, // Giá gas mặc định, có thể điều chỉnh
+      gas: 8000000,
+      networkCheckTimeout: 10000000,
+      timeoutBlocks: 500,
       skipDryRun: true,
       zksync: true,
-      ethNetwork: 'sepolia',
-      verifyURL: 'https://explorer.sepolia.era.zksync.dev/contract_verification'
+      //ethNetwork: 'sepolia',
+      //verifyURL: 'https://explorer.sepolia.era.zksync.dev/contract_verification'
     }
   },
   compilers: {
