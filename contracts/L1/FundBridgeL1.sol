@@ -6,10 +6,17 @@ import "@matterlabs/zksync-contracts/l1/contracts/zksync/interfaces/IZkSync.sol"
 contract FundBridgeL1 {
     IZkSync public zkSync;
     address public l2Target;
+    address public owner;
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
 
     constructor(address _zkSync, address _l2Target) {
         zkSync = IZkSync(_zkSync);
         l2Target = _l2Target;
+        owner = msg.sender;
     }
 
     function syncFundRaiserStatus(uint256 _fundRaiserId, bool _isActive) external {

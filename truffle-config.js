@@ -6,14 +6,14 @@ module.exports = {
     sepolia: {
       provider: () => new HDWalletProvider(
         process.env.PRIVATE_KEY,
-        'https://sepolia.infura.io/v3/5f441fac55ed481da6b5f67d061c5ac3'
+        `https://sepolia.infura.io/v3/${process.env.INFURA_PROJECT_ID}`
       ),
       network_id: 11155111, // Sepolia's network ID
       gas: 5500000,
       confirmations: 2,
       timeoutBlocks: 200,
       skipDryRun: true,
-      networkCheckTimeout: 1000000
+      networkCheckTimeout: 1000000 // Thêm dòng này, đơn vị là milliseconds
     },
     zkSyncTestnet: {
       provider: () => new HDWalletProvider(process.env.PRIVATE_KEY, 'https://sepolia.era.zksync.dev'),
@@ -31,7 +31,18 @@ module.exports = {
   compilers: {
     solc: {
       version: "0.8.19",
+      settings: {
+        optimizer: {
+          enabled: true,
+          runs: 200
+        }
+      }
     }
   },
-  contracts_directory: './contracts/L2'
+  plugins: [
+    'truffle-plugin-verify'
+  ],
+  api_keys: {
+    etherscan: process.env.ETHERSCAN_API_KEY
+  }
 };
